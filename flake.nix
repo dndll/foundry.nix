@@ -6,7 +6,15 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, ... }:
-    flake-utils.lib.eachSystem [
+  let 
+    localOverlay = (final: prev: rec {
+      default = final.callPackage ./foundry-bin {};
+    }); 
+  in
+     overlays = {
+        default = localOverlay;
+     };
+     flake-utils.lib.eachSystem [
       "x86_64-linux"
       "x86_64-darwin"
       "aarch64-linux"
@@ -14,11 +22,16 @@
     ] (system:
       let
         # FIXME: This doesn't feel idiomatic, but my nix-fu is weak
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs { 
+          overlays = [
+            localOverlay
+          ];
+          inherit system; 
+        };
         foundry-bin = import ./foundry-bin { inherit pkgs; };
         # TODO: Add a source-based derivation someday
       in rec {
-        apps.cast = {
+       apps.cast = {
           type = "app";
           program = "${defaultPackage}/bin/cast";
         };
@@ -45,9 +58,7 @@
         };
       }
     ) // {
-      overlay = (final: prev: rec {
-        foundry-bin = final.callPackage ./foundry-bin {};
-      });
+      overlay = localOverlay;
     };
 }
 
